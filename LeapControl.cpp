@@ -14,20 +14,21 @@ HINSTANCE hInst;								// current instance
 TCHAR szTitle[MAX_LOADSTRING];					// The title bar text
 TCHAR szWindowClass[MAX_LOADSTRING];			// the main window class name
 
-//宏定义
-#define APP_NAME L"LeapMotion PPT控制程序"		//陈天成 2014.4.6
+//macro
+#define APP_NAME L"LeapMotion PPT Controller"		//by skypolis 2014.4.6
 
-//常量定义
+//constant
 Leap::Controller controller;	//leapmotion controller
-NOTIFYICONDATA nid;				//托盘属性  
-HMENU hMenu;					//托盘菜单
+NOTIFYICONDATA nid;				//tray property  
+HMENU hMenu;					//tray menu
+
 const UINT NID = 1;
 const UINT WM_TrayNotify = WM_USER+123;
 const UINT ID_TRAYEXIT = 1;
-const unsigned long TIME_ELAPSE = 500;	//判定两次有效swipe手势之间的最小间隔
+const unsigned long TIME_ELAPSE = 500;	// mininum millisecond gap to judge two valid swipes
 HWND ghWnd = 0;
 
-//函数声明
+//function declaration
 void isLeapmotionConnected();
 
 // Forward declarations of functions included in this code module:
@@ -61,7 +62,7 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 	
 	hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_LEAPCONTROL));
 
-	//初始化LeapMotion
+	//initialize LeapMotion
 	int64_t lastFrameID = -1;
 	int lastSwipeID = -1;
 	DWORD timeElapse = 0;
@@ -79,7 +80,7 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 		} 
 		else 
 		{
-			//判断leapmotion是否连接
+			//if the leapmotion is connnected to computer
 			if(!controller.isConnected())
 			{
 				leapmotion_connected = false;
@@ -87,7 +88,7 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 				continue;
 			}
 
-			//首次连接设置手势和后台接收
+			//set up gestures and background running
 			if(!leapmotion_connected)
 			{
 				PostMessage(ghWnd, WM_TrayNotify, NULL, WM_LBUTTONDOWN);
@@ -98,10 +99,10 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 				controller.setPolicyFlags(Leap::Controller::PolicyFlag::POLICY_BACKGROUND_FRAMES);
 			}
 
-			//读取frame
+			//read a frame
 			Leap::Frame frame = controller.frame();
 
-			//判定是否是新的frame
+			//if this is a new frame
 			if (lastFrameID >= frame.id())
 			{
 				Sleep(100);
@@ -117,13 +118,13 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 				{
 					Leap::SwipeGesture swipe = gl[i];
 					
-					//通过ID判断是否是旧数据
+					//check if this is a new swipe by id, not quite reliable
 					if(lastSwipeID >= swipe.id())
 					{
 						break;
 					}
 
-					//判断两次swipe的时间间隔
+					//check time gap between two swipes to make sure the gesture of user
 					DWORD t = GetTickCount();
 					if(abs(long(t - timeElapse)) < TIME_ELAPSE)
 					{
@@ -135,20 +136,20 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 
 					Leap::Vector diff = 0.004f * (swipe.position() - swipe.startPosition());
 
-					//如果动作足够明显且是左右方向
+					//if the direction is horizantal and seems like a intentional swipe
 					if(abs(diff.x) > 0.1 && abs(diff.x) > abs(diff.y*0.58) && abs(diff.x) > abs(diff.z*0.58))
 					{
-						//找到ppt播放窗口
+						//find the slide show program
 						HWND hPPTWnd = FindWindow(L"screenClass", NULL);
 
 						if(NULL != hPPTWnd)
 						{
-							//向右翻
+							//right to next
 							if(diff.x > 0)
 							{
 								PostMessage(hPPTWnd, WM_COMMAND, MAKELONG(393,1), 0);
 							}
-							else	//向左翻
+							else	//left to previous
 							{
 								PostMessage(hPPTWnd, WM_COMMAND, MAKELONG(394,1), 0);
 							}
@@ -230,7 +231,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    //UpdateWindow(hWnd);
    ShowWindow(hWnd, SW_HIDE);
 
-   //创建托盘图标
+   //create tray icon
    nid.cbSize = sizeof(NOTIFYICONDATA);
    nid.hWnd = hWnd;
    nid.uID = NID;
@@ -239,8 +240,8 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    nid.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_LEAPCONTROL));
    lstrcpy(nid.szTip, APP_NAME);
 
-   hMenu = CreatePopupMenu();//生成托盘菜单  
-   AppendMenu(hMenu, MF_STRING, ID_TRAYEXIT, TEXT("退出"));
+   hMenu = CreatePopupMenu();//create tray menu
+   AppendMenu(hMenu, MF_STRING, ID_TRAYEXIT, TEXT("Quit"));
 
    Shell_NotifyIcon(NIM_ADD, &nid);  
 
@@ -287,21 +288,21 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		EndPaint(hWnd, &ps);
 		break;
 	case WM_DESTROY:
-		Shell_NotifyIcon(NIM_DELETE, &nid);	//删除托盘图标
+		Shell_NotifyIcon(NIM_DELETE, &nid);	//delete tray icon
 		PostQuitMessage(0);
 		break;
 	case WM_TrayNotify:
 		switch(lParam)
 		{
-		//右键显示菜单
+		//right mouse button
 		case WM_RBUTTONDOWN:
 			{
-				//获取鼠标坐标
+				//get mouse position
 				POINT pt;
 				GetCursorPos(&pt);
 				SetForegroundWindow(hWnd);
 				
-				//显示并获取选中的菜单
+				//display and choose a menu command
 				int cmd = TrackPopupMenu(hMenu, TPM_RETURNCMD, pt.x, pt.y, NULL, hWnd, NULL);
 				if(cmd == ID_TRAYEXIT)
 				{
@@ -309,7 +310,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				}
 			}
 			break;
-		//左键显示LeapMotion连接信息
+		//left button to check the connection status of leapmotion
 		case WM_LBUTTONDOWN:
 			isLeapmotionConnected();
 			break;
@@ -342,20 +343,20 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 	return (INT_PTR)FALSE;
 }
 
-//判断Leapmotion是否连接，弹出气泡提示
+//check if Leapmotion is connected and pop up a message bubble
 void isLeapmotionConnected()
 {
 	if(controller.isConnected())
 	{
 		lstrcpy(nid.szInfoTitle, APP_NAME);
-		lstrcpy(nid.szInfo, TEXT("LeapMotion已连接！"));
+		lstrcpy(nid.szInfo, TEXT("LeapMotion Connected！"));
 		nid.uTimeout = 200;
 		Shell_NotifyIcon(NIM_MODIFY, &nid);
 	}
 	else
 	{
 		lstrcpy(nid.szInfoTitle, APP_NAME);
-		lstrcpy(nid.szInfo, TEXT("LeapMotion未连接！"));
+		lstrcpy(nid.szInfo, TEXT("LeapMotion NOT connected！"));
 		nid.uTimeout = 200;
 		Shell_NotifyIcon(NIM_MODIFY, &nid);
 	}
